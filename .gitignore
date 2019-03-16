@@ -1,0 +1,4 @@
+scratch.py
+__pychache__/**
+.vscode/**
+*.pyc
