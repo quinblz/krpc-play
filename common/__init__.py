@@ -1,13 +1,19 @@
 import time
 
-def countdown():
+def wait():
+    time.sleep(0.1)
+
+def countdown_to(event_name):
     print('3...')
     time.sleep(1)
     print('2...')
     time.sleep(1)
     print('1...')
     time.sleep(1)
-    print("LAUNCH!")
+    print(event_name)
+
+def clamp(x):
+    return max(min(x, 1.0), 0.0)
 
 def setup_staging_callback(conn, vessel, callback):
     stage_stream = get_fuel_connection(conn, vessel)
