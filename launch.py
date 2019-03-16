@@ -11,11 +11,12 @@ class Launch(GLimited,StagingAware):
     def __init__(self, conn, vessel, target_apoapsis=1e5, target_heading=90.0):
         self.conn = conn
         self.vessel = vessel
+        self.target_heading = target_heading
+        self.target_apoapsis = target_apoapsis
+        
         self.ap = vessel.auto_pilot
         self.running = True
         self.should_stage = False
-        self.target_heading = target_heading
-        self.target_apoapsis = target_apoapsis
 
     def gravity_turn(self):
         start_roll = 250

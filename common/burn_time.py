@@ -1,0 +1,17 @@
+import math
+
+class BurnTime():
+    def __init__(self):
+        self.conn = None
+        self.vessel = None
+        self.mass = lambda: 1.0
+
+    def burn_time(self, delta_v):
+        F = self.vessel.available_thrust
+        Isp = self.vessel.specific_impulse * 9.82
+        m0 = self.mass()
+        #TODO: handle Isp = 0
+        m1 = m0 / math.exp(delta_v/Isp)
+        flow_rate = F / Isp
+        delta_t = (m0 - m1) / flow_rate
+        return delta_t

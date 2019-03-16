@@ -18,3 +18,5 @@ def clamp(x):
 def highlight(part):
     part.highlight_color = (1.0, 0.0, 0.0)
     part.highlighted = True
+
+surface_normal_gravity = 9.82
