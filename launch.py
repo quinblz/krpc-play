@@ -10,11 +10,11 @@ from common.staging import StagingAware
 class Launch(GLimited,StagingAware):
     def __init__(self, conn, vessel, target_apoapsis=1e5, target_heading=90.0):
         self.conn = conn
-        self.vessel = vessel
+        self.vessel = conn.space_center.active_vessel
         self.target_heading = target_heading
         self.target_apoapsis = target_apoapsis
         
-        self.ap = vessel.auto_pilot
+        self.ap = self.vessel.auto_pilot
         self.running = True
         self.should_stage = False
 
@@ -57,4 +57,3 @@ class Launch(GLimited,StagingAware):
                 self.vessel.control.throttle = 0.0
                 self.running = False
             wait()
-        print("Done.")

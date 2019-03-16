@@ -11,5 +11,7 @@ class GLimited():
         available_accl = self.available_thrust() / self.mass()
         target_accl = g * surface_normal_gravity
         if available_accl:
-            target_throttle = clamp(target_accl / available_accl)
+            target_throttle = target_accl / available_accl
+            #TODO: notify if target_throttle > 0
+            target_throttle = clamp(target_throttle)
         self.vessel.control.throttle = target_throttle

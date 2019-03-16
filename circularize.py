@@ -1,22 +1,24 @@
 import math
 
-from common import wait
+from common import wait, notify
 from common.staging import StagingAware
 from common.burn_time import BurnTime
 from common.g_limit import GLimited
 
 class Circularize(StagingAware, BurnTime, GLimited):
-    def __init__(self, conn, vessel, target_heading=90.0):
+    def __init__(self, conn, target_heading=90.0):
         self.conn = conn
-        self.vessel = vessel
+        self.vessel = conn.space_center.active_vessel
         self.target_heading = target_heading
 
-        self.ap = vessel.auto_pilot
+        self.ap = self.vessel.auto_pilot
         self.should_stage = False
         self.running = True
 
     def circularization_delta_v(self):
-        """ https://en.wikipedia.org/wiki/Vis-viva_equation """
+        '''
+        https://en.wikipedia.org/wiki/Vis-viva_equation
+        '''
         mu = self.vessel.orbit.body.gravitational_parameter
         r = self.apoapsis()
         a1 = self.semi_major_axis()
@@ -35,7 +37,7 @@ class Circularize(StagingAware, BurnTime, GLimited):
         self.available_thrust = self.conn.add_stream(getattr, self.vessel, 'available_thrust')
 
     def execute(self):
-        print("Circularizing...")
+        notify("Circularizing...")
         self.connect_streams()
 
         self.initial_apoapsis = self.apoapsis()
@@ -53,9 +55,9 @@ class Circularize(StagingAware, BurnTime, GLimited):
         lead_time = 10.0 # seconds
         eccentricity = self.eccentricity()
 
-        print(f"dv: {dv}")
-        print(f"burn_time: {burn_time}")
-        print(f"initial_eccentricity: {eccentricity}")
+        notify(f"dv: {dv}")
+        notify(f"burn_time: {burn_time}")
+        notify(f"initial_eccentricity: {eccentricity}")
 
         #TODO: point to apoapsis prograde before warp
         self.conn.space_center.warp_to(start_ut - lead_time)
@@ -79,5 +81,5 @@ class Circularize(StagingAware, BurnTime, GLimited):
                 self.running = False
 
             wait()
-        print(f"final_eccentricity: {eccentricity}")
+        notify(f"final_eccentricity: {eccentricity}")
 
