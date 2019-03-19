@@ -25,7 +25,7 @@ def clamp_radians(x):
         x += tau
     while x > tau:
         x -= tau
-return x
+    return x
 
 def highlight(part):
     part.highlight_color = (1.0, 0.0, 0.0)

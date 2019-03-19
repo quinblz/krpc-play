@@ -15,6 +15,7 @@
 import krpc
 import math
 import time
+from common import clamp
 
 def main():
     conn = krpc.connect()
@@ -72,6 +73,8 @@ def execute_next_node(conn):
     G = 9.81
     burn_time = (m - (m / math.exp(dv / (isp * G)))) / (F / (isp * G))
 
+# TODO: check fuel level for potential staging
+
 # Warp until burn
     space_center.warp_to(node.ut - (burn_time / 2.0) - 5.0)
     while node.time_to > (burn_time / 2.0):
@@ -81,8 +84,7 @@ def execute_next_node(conn):
 # Actually Burn
     vessel.control.throttle = thrust_controller(vessel, node.remaining_delta_v)  
     while node.remaining_delta_v > .1:
-        ap.target_direction=node.remaining_burn_vector(rf)#comment out this line
-        #if using the vessel sas method to orient vessel
+        ap.target_direction=node.remaining_burn_vector(rf)
         vessel.control.throttle = thrust_controller(vessel, node.remaining_delta_v)  
 
 # Finish Up
@@ -109,12 +111,10 @@ def thrust_controller(vessel, deltaV):
     in a world with discrete physics frames!) it makes sense to relate the
     throttle to the TWR for this purpose.
     '''
-    TWR= vessel.max_thrust/vessel.mass
-    if deltaV < TWR / 3:
-        return .05
-    elif deltaV < TWR / 2:
-        return .1
-    elif deltaV < TWR:
-        return .25
-    else:
-return 1.0
+    if not vessel.available_thrust:
+        vessel.control.activate_next_stage()
+        time.sleep(0.1)
+    TWR= vessel.available_thrust/vessel.mass
+    min_throttle = 0.05
+    throttle = min_throttle + deltaV / TWR / 5
+    return clamp(throttle)

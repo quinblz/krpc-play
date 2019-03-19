@@ -1,10 +1,13 @@
 import math
+from common.maneuver import Maneuver
 
-class BurnTime():
-    def __init__(self):
-        self.conn = None
-        self.vessel = None
+class BurnTime(Maneuver):
+    def __init__(self, conn, **kwargs):
+        super().__init__(conn, **kwargs)
         self.mass = lambda: 1.0
+
+    def connect_streams(self):
+        pass
 
     def burn_time(self, delta_v):
         F = self.vessel.available_thrust

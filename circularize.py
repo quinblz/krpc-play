@@ -37,6 +37,8 @@ class Circularize(StagingAware, BurnTime, GLimited):
         self.available_thrust = self.conn.add_stream(getattr, self.vessel, 'available_thrust')
 
     def execute(self):
+        if self.vessel.orbit.eccentricity < 0.1:
+            return
         notify("Circularizing...")
         self.connect_streams()
 

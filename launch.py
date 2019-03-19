@@ -8,7 +8,7 @@ from common.g_limit import GLimited
 from common.staging import StagingAware
 
 class Launch(GLimited,StagingAware):
-    def __init__(self, conn, vessel, target_apoapsis=1e5, target_heading=90.0):
+    def __init__(self, conn, target_apoapsis=1e5, target_heading=90.0):
         self.conn = conn
         self.vessel = conn.space_center.active_vessel
         self.target_heading = target_heading
