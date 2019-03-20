@@ -3,7 +3,6 @@ import numpy
 from numpy.linalg import norm
 from common import clamp_radians, notify
 from common.maneuver import Maneuver
-from common.burn_time import BurnTime
 
 def orbital_progress(orbit, ut=None):
     '''
@@ -18,7 +17,7 @@ def orbital_progress(orbit, ut=None):
         ma = orbit.mean_anomaly
     return clamp_radians(lan + arg_p + ma)
 
-class HohmannTransfer(BurnTime, Maneuver):
+class HohmannTransfer(Maneuver):
     def __init__(self, conn, **kwargs):
         super().__init__(conn, **kwargs)
         ksc = conn.space_center
