@@ -1,11 +1,15 @@
 import time
 import math
 
-def notify(msg):
-    print(msg)
+def notify(*args):
+    print(*args)
 
-def wait():
-    time.sleep(0.1)
+class Wait():
+    def __init__(self,interval):
+        self.interval = interval
+    def __call__(self):
+        time.sleep(self.interval)
+wait = Wait(0.1)
 
 def countdown_to(event_name):
     notify('3...')
