@@ -7,9 +7,6 @@ class CapsuleReentry(Maneuver):
     def __init__(self, conn, **kwargs):
         super().__init__(conn, **kwargs)
 
-    def connect_streams(self):
-        super().connect_streams()
-
     def execute(self):
         vessel = self.vessel
         ksc = self.conn.space_center

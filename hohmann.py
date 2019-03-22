@@ -82,15 +82,6 @@ class HohmannTransfer(Maneuver):
         transfer_time = refine(transfer_time, 0.1)
         return transfer_time - 0.1
 
-        
-    def connect_streams(self):
-        self.ut = self.conn.add_stream(getattr, self.conn.space_center, 'ut')
-        self.semi_major_axis = self.conn.add_stream(getattr, self.vessel.orbit, 'semi_major_axis')
-        self.eccentricity = self.conn.add_stream(getattr, self.vessel.orbit, 'eccentricity')
-        self.apoapsis = self.conn.add_stream(getattr, self.vessel.orbit, 'apoapsis')
-        self.mass = self.conn.add_stream(getattr, self.vessel, 'mass')
-        self.available_thrust = self.conn.add_stream(getattr, self.vessel, 'available_thrust')
-
     def execute(self):
         if self.vessel.orbit.relative_inclination(self.target.orbit) > 0.01:
             raise Exception("Inclination to target is too large")
@@ -98,8 +89,6 @@ class HohmannTransfer(Maneuver):
             raise Exception("Vessel eccentricity is too large")
         if self.target.orbit.eccentricity > 0.1:
             raise Exception("Target eccentricity is too large")
-        
-        self.connect_streams()
 
         transfer_angle = self.transfer_phase_angle()
         transfer_time = self.refine_transfer(transfer_angle)

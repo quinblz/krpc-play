@@ -4,14 +4,14 @@ from common import wait, notify
 from common.staging import StagingAware
 from common.burn_time import BurnTime
 from common.g_limit import GLimited
+from common.maneuver import Maneuver
 
-class Circularize(StagingAware, BurnTime, GLimited):
+class Circularize(StagingAware, BurnTime, GLimited, Maneuver):
     def __init__(self, conn, target_heading=90.0):
         self.conn = conn
         self.vessel = conn.space_center.active_vessel
         self.target_heading = target_heading
 
-        self.ap = self.vessel.auto_pilot
         self.should_stage = False
         self.running = True
 
@@ -28,25 +28,18 @@ class Circularize(StagingAware, BurnTime, GLimited):
         delta_v = v2 - v1
         return delta_v
 
-    def connect_streams(self):
-        self.ut = self.conn.add_stream(getattr, self.conn.space_center, 'ut')
-        self.semi_major_axis = self.conn.add_stream(getattr, self.vessel.orbit, 'semi_major_axis')
-        self.eccentricity = self.conn.add_stream(getattr, self.vessel.orbit, 'eccentricity')
-        self.apoapsis = self.conn.add_stream(getattr, self.vessel.orbit, 'apoapsis')
-        self.mass = self.conn.add_stream(getattr, self.vessel, 'mass')
-        self.available_thrust = self.conn.add_stream(getattr, self.vessel, 'available_thrust')
-
     def execute(self):
         if self.vessel.orbit.eccentricity < 0.1:
             return
         notify("Circularizing...")
-        self.connect_streams()
 
         self.initial_apoapsis = self.apoapsis()
 
         self.vessel.control.throttle = 0.0
-        self.ap.target_pitch_and_heading(0.0, self.target_heading)
-        self.ap.engage()
+        ap = self.vessel.auto_pilot
+        ap.target_pitch_and_heading(0.0, self.target_heading)
+        ap.engage()
+        ap.wait()
 
         dv = self.circularization_delta_v()
         burn_time = self.burn_time(dv)

@@ -6,8 +6,9 @@ from common import (
 )
 from common.g_limit import GLimited
 from common.staging import StagingAware
+from common.maneuver import Maneuver
 
-class Launch(GLimited,StagingAware):
+class Launch(GLimited, StagingAware, Maneuver):
     def __init__(self, conn, target_apoapsis=1e5, target_heading=90.0):
         self.conn = conn
         self.vessel = conn.space_center.active_vessel
@@ -21,19 +22,12 @@ class Launch(GLimited,StagingAware):
     def gravity_turn(self):
         start_roll = 250
         end_roll = 45000
-        completion = clamp((self.altitude() - start_roll) / (end_roll - start_roll))
+        completion = clamp((self.mean_altitude() - start_roll) / (end_roll - start_roll))
         target_pitch = 90 * (1.0 - completion)
         if abs(target_pitch - self.ap.target_pitch) > 0.5:
             self.ap.target_pitch_and_heading(target_pitch, self.target_heading)
 
-    def create_streams(self):
-        self.altitude = self.conn.add_stream(getattr, self.vessel.flight(), 'mean_altitude')
-        self.apoapsis = self.conn.add_stream(getattr, self.vessel.orbit, 'apoapsis_altitude')
-        self.mass = self.conn.add_stream(getattr, self.vessel, 'mass')
-        self.available_thrust = self.conn.add_stream(getattr, self.vessel, 'available_thrust')
-
     def execute(self):
-        self.create_streams()
             
         self.vessel.control.throttle = 1.0
         self.ap.engage()
@@ -48,10 +42,10 @@ class Launch(GLimited,StagingAware):
         while self.running:
             self.check_staging()
 
-            if self.apoapsis() < 0.9 * self.target_apoapsis:
+            if self.apoapsis_altitude() < 0.9 * self.target_apoapsis:
                 self.g_limit(2.2)
                 self.gravity_turn()
-            elif self.apoapsis() < self.target_apoapsis:
+            elif self.apoapsis_altitude() < self.target_apoapsis:
                 self.g_limit(1.0)
             else:
                 self.vessel.control.throttle = 0.0

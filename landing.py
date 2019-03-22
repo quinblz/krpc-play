@@ -9,13 +9,6 @@ class Land(Maneuver):
         super().__init__(conn, **kwargs)
 
     def connect_streams(self):
-        super().connect_streams()
-        self.ut = self.conn.add_stream(getattr, self.conn.space_center, 'ut')
-        self.surface_altitude = self.conn.add_stream(getattr, self.vessel.flight(), 'surface_altitude')
-        self.mass = self.conn.add_stream(getattr, self.vessel, 'mass')
-        self.available_thrust = self.conn.add_stream(getattr, self.vessel, 'available_thrust')
-        self.situation = self.conn.add_stream(getattr, self.vessel, 'situation')
-
         telem = self.vessel.flight(self.vessel.orbit.body.reference_frame)
         self.vertical_speed = self.conn.add_stream(getattr, telem, 'vertical_speed')
         self.speed = self.conn.add_stream(getattr, telem, 'speed')
