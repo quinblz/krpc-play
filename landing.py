@@ -1,5 +1,4 @@
 import math
-import time
 
 from common.maneuver import Maneuver
 from common.pid import PID
@@ -26,9 +25,10 @@ class Land(Maneuver):
     def warp_to_soi(self):
         vessel = self.vessel
         orbit = vessel.orbit
+        ksc = self.conn.space_center
         while orbit.periapsis_altitude > 0 and orbit.next_orbit and orbit.body != self.target:
             notify('Warping to next sphere of influence...')
-            self.conn.space_center.warp_to(self.ut() + orbit.time_to_soi_change + 1)
+            ksc.warp_to(ksc.ut + orbit.time_to_soi_change + 1)
             orbit = vessel.orbit
         
     def lower_periapsis(self):
@@ -48,13 +48,13 @@ class Land(Maneuver):
         mu = vessel.orbit.body.gravitational_parameter
         g = mu / (r * r)
         v = self.speed()
+        # https://en.wikipedia.org/wiki/Equations_for_a_falling_body
         delta_v = v + math.sqrt(2 * mu * ( 1/r - 1/(r+d)))
         delta_t = self.burn_time(delta_v, against_g=g)
         #TTI = 2 * d / (delta_v + v)
         #g_avg = 0.5 * g + 0.5 * mu / ((d+r)*(d+r))
         #TTI = (v + math.sqrt(v*v + 2*g_avg*d)) / g_avg
         #TTI = (delta_v - v) / g_avg
-
         anom = orbit.true_anomaly_at_radius(r + buffer)
         ut = min(orbit.ut_at_true_anomaly(anom), orbit.ut_at_true_anomaly(-anom))
 
@@ -63,16 +63,23 @@ class Land(Maneuver):
 
     def slow_down(self, vessel):
         notify('Slowing down...')
+        
+        vessel = self.vessel
+        control = vessel.control
+        control.sas = True
+        control.sas_mode = control.sas_mode.retrograde
+
         g = self.surface_gravity
         ut, delta_v, delta_t = self.estimate_suicide_burn()
-        self.conn.space_center.warp_to(ut - 0.5 * delta_t)
 
-        vessel.control.throttle = 1.0
+        self.conn.space_center.warp_to(ut - 0.5 * delta_t)
+        
+        control.throttle = 1.0
         effective_twr = self.TWR() - self.surface_gravity
         notify(f'surface_altitude:{self.surface_altitude()}, vertical_speed:{self.vertical_speed()}, effective_twr:{effective_twr}')
         while -self.vertical_speed() > 10 * effective_twr:
             wait()
-        vessel.control.throttle = 0.0
+        control.throttle = 0.0
         notify(f'surface_altitude:{self.surface_altitude()}, vertical_speed:{self.vertical_speed()}')
 
     def stopping_distance(self):
@@ -89,7 +96,7 @@ class Land(Maneuver):
         control.solar_panels = False
         control.sas = True
         control.sas_mode = control.sas_mode.retrograde
-        
+
         notify('Waiting for landing burn...')
         buffer = 25
         while self.surface_altitude() > self.stopping_distance() + buffer:
@@ -138,7 +145,7 @@ class Land(Maneuver):
         vessel.control.solar_panels = False
 
         if vessel.orbit.periapsis_altitude > 0:
-            self.lower_periaps
+            self.lower_periapsis()
         if vessel.orbit.body.has_atmosphere:
             self.reentry_burn()
         if self.surface_altitude() > 20000:

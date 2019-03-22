@@ -109,6 +109,3 @@ class HohmannTransfer(Maneuver):
         node = self.vessel.control.add_node(transfer_time, prograde = delta_v)
 
         self.execute_next_node()
-        # compute dv
-        # setup node(s)
-        # execute node(s)

@@ -27,8 +27,11 @@ class Maneuver():
         delta_t = (m0 - m1) / flow_rate
         return delta_t
 
+    def connect_streams(self):
+        pass
+
     def execute_next_node(self):
         execute_next_node(self.conn)
 
-    def connect_streams(self):
+    def execute_next_nodect_streams(self):
         pass
