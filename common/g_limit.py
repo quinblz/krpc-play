@@ -1,10 +1,9 @@
 from common import clamp, surface_normal_gravity
+from common.maneuver import Maneuver
 
-class GLimited():
-    def __init__(self):
-        self.vessel = None
-        self.available_thrust = lambda: 0.0
-        self.mass = lambda: 1.0
+class GLimited(Maneuver):
+    def __init__(self, conn, **kwargs):
+        super().__init__(conn, **kwargs)
 
     def g_limit(self, g):
         target_throttle = 0.0

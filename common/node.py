@@ -15,7 +15,7 @@
 import krpc
 import math
 import time
-from common import clamp
+from common import clamp, wait
 
 def main():
     conn = krpc.connect()
@@ -82,10 +82,11 @@ def execute_next_node(conn):
     ap.wait()
     
 # Actually Burn
-    vessel.control.throttle = thrust_controller(vessel, node.remaining_delta_v)  
-    while node.remaining_delta_v > .1:
+    vessel.control.throttle, acc = thrust_controller(vessel, node.remaining_delta_v)  
+    while node.remaining_delta_v > acc * wait.interval:
         ap.target_direction=node.remaining_burn_vector(rf)
-        vessel.control.throttle = thrust_controller(vessel, node.remaining_delta_v)  
+        vessel.control.throttle, acc = thrust_controller(vessel, node.remaining_delta_v)
+        wait()
 
 # Finish Up
     ap.disengage()
@@ -117,4 +118,5 @@ def thrust_controller(vessel, deltaV):
     TWR= vessel.available_thrust/vessel.mass
     min_throttle = 0.05
     throttle = min_throttle + deltaV / TWR / 5
-    return clamp(throttle)
+    throttle = clamp(throttle)
+    return throttle, TWR * throttle

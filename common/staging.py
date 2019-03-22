@@ -1,12 +1,10 @@
 from common import highlight
 
 class StagingAware():
-    def __init__(self):
-        self.conn = None
-        self.vessel = None
+    def __init__(self, conn, **kwargs):
+        super().__init__(conn, **kwargs)
         self.should_stage = False
         self.running = True
-
         self.__fuel_monitor = None
 
     def setup_staging_callback(self):

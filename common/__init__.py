@@ -7,8 +7,10 @@ def notify(*args):
 class Wait():
     def __init__(self,interval):
         self.interval = interval
-    def __call__(self):
-        time.sleep(self.interval)
+    def __call__(self, interval=None):
+        if interval is None:
+            interval = self.interval
+        time.sleep(interval)
 wait = Wait(0.1)
 
 def countdown_to(event_name):

@@ -15,10 +15,7 @@ print(conn.krpc.get_status())
 vessel = conn.space_center.active_vessel
 
 Launch(conn).execute()
-exit()
 Circularize(conn).execute()
-
-#vessel.control.activate_next_stage()
 
 HohmannTransfer(conn).execute()
 Land(conn).execute()

@@ -9,13 +9,15 @@ from common.staging import StagingAware
 from common.maneuver import Maneuver
 
 class Launch(GLimited, StagingAware, Maneuver):
-    def __init__(self, conn, target_apoapsis=1e5, target_heading=90.0):
+    def __init__(self, conn, target_apoapsis=1e5, target_heading=90.0, **kwargs):
+        super().__init__(conn, **kwargs)
         self.conn = conn
         self.vessel = conn.space_center.active_vessel
         self.target_heading = target_heading
         self.target_apoapsis = target_apoapsis
         
         self.ap = self.vessel.auto_pilot
+        self.ap.reference_frame = self.vessel.surface_reference_frame
         self.running = True
         self.should_stage = False
 
@@ -28,9 +30,12 @@ class Launch(GLimited, StagingAware, Maneuver):
             self.ap.target_pitch_and_heading(target_pitch, self.target_heading)
 
     def execute(self):
-            
-        self.vessel.control.throttle = 1.0
+        if self.apoapsis_altitude() > self.target_apoapsis:
+            return
+
         self.ap.engage()
+        self.ap.target_pitch_and_heading(90.0, self.target_heading)
+        self.vessel.control.throttle = 1.0
 
         if(self.vessel.situation == self.conn.space_center.VesselSituation.pre_launch):
             self.ap.target_pitch_and_heading(90, self.target_heading)
@@ -42,7 +47,9 @@ class Launch(GLimited, StagingAware, Maneuver):
         while self.running:
             self.check_staging()
 
-            if self.apoapsis_altitude() < 0.9 * self.target_apoapsis:
+            if self.surface_altitude() < 250:
+                self.g_limit(2.2)
+            elif self.apoapsis_altitude() < 0.9 * self.target_apoapsis:
                 self.g_limit(2.2)
                 self.gravity_turn()
             elif self.apoapsis_altitude() < self.target_apoapsis:

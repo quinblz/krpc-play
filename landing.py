@@ -92,7 +92,7 @@ class Land(Maneuver):
 
         notify('Waiting for landing burn...')
         buffer = 25
-        while self.surface_altitude() > self.stopping_distance() + buffer:
+        while self.surface_altitude() > self.stopping_distance() + 2.0 * wait.interval * self.speed():
             wait()
 
         landing_speed = 0.5
@@ -102,7 +102,7 @@ class Land(Maneuver):
         effective_twr = self.TWR() - self.surface_gravity
         control.throttle = 1.0
         notify('Landing burn!')
-        while self.speed() > 10 * effective_twr:
+        while self.speed() > 5 * effective_twr:
             wait()
 
         pid = PID(0.1, 0.0, 0.0,
@@ -129,11 +129,11 @@ class Land(Maneuver):
         if self.situation() == self.conn.space_center.VesselSituation.landed:
             return
         vessel = self.vessel
+        control = vessel.control
 
-        vessel.control.speed_mode = vessel.control.speed_mode.surface
-        ap = vessel.auto_pilot
-        ap.sas = True
-        ap.sas_mode = ap.sas_mode.retrograde
+        control.speed_mode = control.speed_mode.surface
+        control.sas = True
+        control.sas_mode = control.sas_mode.retrograde
 
         vessel.control.solar_panels = False
 
@@ -147,3 +147,9 @@ class Land(Maneuver):
         self.controlled_descent()
 
         notify('Landed?')
+
+        
+if __name__ == "__main__":
+    import krpc
+    conn = krpc.connect()
+    Land(conn).execute()
