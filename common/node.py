@@ -114,6 +114,8 @@ def thrust_controller(vessel, deltaV):
     '''
     if not vessel.available_thrust:
         vessel.control.activate_next_stage()
+        if not vessel.available_thrust:
+            vessel.control.activate_next_stage()
         time.sleep(0.1)
     TWR= vessel.available_thrust/vessel.mass
     min_throttle = 0.05

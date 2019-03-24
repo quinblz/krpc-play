@@ -58,3 +58,10 @@ class Launch(GLimited, StagingAware, Maneuver):
                 self.vessel.control.throttle = 0.0
                 self.running = False
             wait()
+
+        self.ap.disengage()
+
+if __name__ == "__main__":
+    import krpc
+    conn = krpc.connect()
+    Launch(conn).execute()

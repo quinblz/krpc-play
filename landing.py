@@ -81,17 +81,17 @@ class Land(Maneuver):
     
     def controlled_descent(self):
         LANDED = self.conn.space_center.VesselSituation.landed
+        SPLASHED = self.conn.space_center.VesselSituation.splashed
         control = self.vessel.control
         control.trottle = 0
         control.brakes = True
-        control.legs = True
+        control.gear = True
         control.lights = True
         control.solar_panels = False
         control.sas = True
         control.sas_mode = control.sas_mode.retrograde
 
         notify('Waiting for landing burn...')
-        buffer = 25
         while self.surface_altitude() > self.stopping_distance() + 2.0 * wait.interval * self.speed():
             wait()
 
@@ -105,11 +105,12 @@ class Land(Maneuver):
         while self.speed() > 5 * effective_twr:
             wait()
 
-        pid = PID(0.1, 0.0, 0.0,
+        notify(f'effective_twr: {effective_twr}')
+        pid = PID(0.2, 0.0, 0.0,
             sample_time=wait.interval,
             output_limits=(-1.0,1.0))
         notify('Entering controlled descent...')
-        while self.situation() != LANDED:
+        while self.situation() not in [LANDED, SPLASHED]:
             altitude = self.surface_altitude()
             base = base_throttle()
             target = v_target() 

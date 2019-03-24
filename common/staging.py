@@ -39,6 +39,8 @@ class StagingAware():
     def check_staging(self, force=False):
         if self.should_stage or force:
             self.vessel.control.activate_next_stage()
+            if self.get_stageable_engine() is None:
+                self.vessel.control.activate_next_stage()
             self.running = self.setup_staging_callback()
             return True
         return False

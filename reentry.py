@@ -32,6 +32,7 @@ class CapsuleReentry(StagingAware, Maneuver):
                 break
         control.throttle = 0
 
+        # TODO: handle decoupling heat shields
         while max([part.decouple_stage for part in vessel.parts.all]) > -1:
             control.activate_next_stage()
 
