@@ -1,5 +1,6 @@
 import time
 import math
+import numpy as np
 
 def notify(*args):
     print(*args)
@@ -36,5 +37,9 @@ def clamp_radians(x):
 def highlight(part):
     part.highlight_color = (1.0, 0.0, 0.0)
     part.highlighted = True
+
+def normed(vector):
+    magnitude = np.linalg.norm(vector)
+    return vector / magnitude
 
 surface_normal_gravity = 9.82

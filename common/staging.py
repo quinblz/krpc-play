@@ -1,6 +1,7 @@
 from common import highlight
+from common.maneuver import Maneuver
 
-class StagingAware():
+class StagingAware(Maneuver):
     def __init__(self, conn, **kwargs):
         super().__init__(conn, **kwargs)
         self.should_stage = False

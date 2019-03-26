@@ -47,6 +47,14 @@ class Maneuver():
     def eccentricity(self):
         self.eccentricity = self.conn.add_stream(getattr, self.vessel.orbit, 'eccentricity')
         return self.eccentricity()
+
+    def latitude(self):
+        self.latitude = self.conn.add_stream(getattr, self.vessel.flight(), 'latitude')
+        return self.latitude()
+
+    def longitude(self):
+        self.longitude = self.conn.add_stream(getattr, self.vessel.flight(), 'longitude')
+        return self.longitude()
     
     def mass(self):
         self.mass = self.conn.add_stream(getattr, self.vessel, 'mass')
@@ -71,3 +79,11 @@ class Maneuver():
     def ut(self):
         self.ut = self.conn.add_stream(getattr, self.conn.space_center, 'ut')
         return self.ut()
+
+    def abort(self):
+        self.abort = self.conn.add_stream(getattr, self.vessel.control, 'abort')
+        return self.abort()
+
+    def brakes(self):
+        self.brakes = self.conn.add_stream(getattr, self.vessel.control, 'brakes')
+        return self.brakes()
