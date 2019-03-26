@@ -28,6 +28,8 @@ class Hover(GLimited, Maneuver):
         degrees_per_meter = 180 / r / math.pi
         lat0 = self.latitude() + 50 * degrees_per_meter
         lat1 = lat0 + 10 * degrees_per_meter
+        lon0 = self.longitude()
+        lon1 = lon0 + 20 * degrees_per_meter
         target = lambda : None
         
         telem = self.vessel.flight(body.reference_frame)
@@ -47,18 +49,24 @@ class Hover(GLimited, Maneuver):
             throttle_error.append(err)
             return throttle
 
-        scale = 0.2
-        lat_control = PID(scale * 1.0, 0.0, scale * 3.0)
+        lat_control = PID(0.2, 0.0, 0.6)
+        lon_control = PID(0.2, 0.0, 0.6)
         lat_control.output_limits = -1.0, 1.0
+        lon_control.output_limits = -1.0, 1.0
         lat_error = []
+        lon_error = []
         line = self.conn.drawing.add_direction((1,0,0), rf)
         def update_direction():
-            err = (target.latitude - self.latitude()) / degrees_per_meter
-            output = lat_control(err) * 0.2
-            vec = np.array([1.0, -output, 0.0])
-            lat_error.append(err)
-            line.end = (0.0, err, 0.0)
-            notify(err, output)
+            scale = 0.2
+            lat_err = (target.latitude - self.latitude()) / degrees_per_meter
+            lon_err = (target.longitude - self.longitude()) / degrees_per_meter
+            lat_out = lat_control(lat_err) * scale
+            lon_out = lon_control(lon_err) * scale
+            lat_error.append(lat_err)
+            lon_error.append(lon_err)
+            vec = np.array([1.0, -lat_out, -lon_out])
+            line.end = (0.0, lat_err, lon_err)
+            notify(lat_err, lon_err, vec)
             return vec
 
         target.altitude = 100.0
@@ -67,24 +75,29 @@ class Hover(GLimited, Maneuver):
         while not self.abort():
             if self.brakes():
                 target.latitude = lat1
+                target.longitude = lon1
             else:
                 target.latitude = lat0
+                target.longitude = lon0
             d = update_direction()
             ap.target_direction = d
             control.throttle = update_throttle() * np.linalg.norm(d)
         control.throttle = 0
 
         from scipy.optimize import least_squares
-        error = np.array(lat_error)
-        t = np.arange(len(error))
+        lat_error = np.array(lat_error)
+        lon_error = np.array(lon_error)
+        t = np.arange(len(lat_error))
         # guess = np.ones(3)
         # res = least_squares(model, guess, args=(t, error))
         # x = res.x
         # fit = model(x, t, 0.0)
         # plt.plot(t, fit, label=f'{x}')
         plt.plot(t, np.zeros_like(t), label='zero')
-        plt.plot(t, np.log(np.abs(error) + 1.0), label='log')
-        plt.plot(t, error, label='raw')
+        plt.plot(t, np.log(np.abs(lat_error) + 1.0), label='log lat')
+        plt.plot(t, lat_error, label='raw lat')
+        plt.plot(t, np.log(np.abs(lon_error) + 1.0), label='log lon')
+        plt.plot(t, lon_error, label='raw lon')
         plt.xlabel('time')
         plt.ylabel('error')
         plt.legend()
