@@ -16,12 +16,19 @@ class Hover(GLimited, Maneuver):
 
     def execute(self):
         vessel = self.vessel
+        rf = vessel.surface_reference_frame # x: up, y: north, z: east
+        ap = vessel.auto_pilot
+        ap.engage()
+        ap.reference_frame = rf
         control = vessel.control
-        control.sas = True
+        control.rcs = True
         body = vessel.orbit.body
         surface_gravity = body.surface_gravity
         r = body.equatorial_radius
         degrees_per_meter = 180 / r / math.pi
+        lat0 = self.latitude() + 50 * degrees_per_meter
+        lat1 = lat0 + 10 * degrees_per_meter
+        target = lambda : None
         
         telem = self.vessel.flight(body.reference_frame)
         vertical_speed = self.conn.add_stream(getattr, telem, 'vertical_speed')
@@ -32,33 +39,45 @@ class Hover(GLimited, Maneuver):
 
         throttle_control = PID(1.0, 0.0, 1.5)
         throttle_error = []
-        # target_altitude = self.surface_altitude()
-        target_altitude = self.surface_altitude()
-
         def update_throttle():
-            p_err = target_altitude - self.surface_altitude()
+            err = target.altitude - self.surface_altitude()
             # acc = surface_gravity - 1.5 * vertical_speed() + p_err
-            acc = surface_gravity + throttle_control(-p_err)
+            acc = surface_gravity + throttle_control(-err)
             throttle = acc / self.TWR()
-            throttle_error.append(p_err)
-            control.throttle = throttle
-            notify(self.surface_altitude())
+            throttle_error.append(err)
+            return throttle
 
+        scale = 0.2
+        lat_control = PID(scale * 1.0, 0.0, scale * 3.0)
+        lat_control.output_limits = -1.0, 1.0
+        lat_error = []
+        line = self.conn.drawing.add_direction((1,0,0), rf)
+        def update_direction():
+            err = (target.latitude - self.latitude()) / degrees_per_meter
+            output = lat_control(err) * 0.2
+            vec = np.array([1.0, -output, 0.0])
+            lat_error.append(err)
+            line.end = (0.0, err, 0.0)
+            notify(err, output)
+            return vec
+
+        target.altitude = 100.0
+        target.latitude = self.latitude()
+        target.longitude = self.longitude()
         while not self.abort():
             if self.brakes():
-                target_altitude = 100
+                target.latitude = lat1
             else:
-                target_altitude = 110
-            update_throttle()
-            wait()
-
-
+                target.latitude = lat0
+            d = update_direction()
+            ap.target_direction = d
+            control.throttle = update_throttle() * np.linalg.norm(d)
         control.throttle = 0
 
         from scipy.optimize import least_squares
-        error = np.array(throttle_error)
+        error = np.array(lat_error)
         t = np.arange(len(error))
-        guess = np.ones(3)
+        # guess = np.ones(3)
         # res = least_squares(model, guess, args=(t, error))
         # x = res.x
         # fit = model(x, t, 0.0)
