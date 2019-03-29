@@ -15,6 +15,7 @@ class Hover(GLimited, Maneuver):
         super().__init__(conn, **kwargs)
 
     def execute(self):
+        ksc = self.conn.space_center
         vessel = self.vessel
         rf = vessel.surface_reference_frame # x: up, y: north, z: east
         ap = vessel.auto_pilot
@@ -26,15 +27,12 @@ class Hover(GLimited, Maneuver):
         surface_gravity = body.surface_gravity
         r = body.equatorial_radius
         degrees_per_meter = 180 / r / math.pi
+
         lat0 = self.latitude() + 50 * degrees_per_meter
-        lat1 = lat0 + 10 * degrees_per_meter
+        lat1 = lat0 + 100 * degrees_per_meter
         lon0 = self.longitude()
         lon1 = lon0 + 20 * degrees_per_meter
         target = lambda : None
-        
-        telem = self.vessel.flight(body.reference_frame)
-        vertical_speed = self.conn.add_stream(getattr, telem, 'vertical_speed')
-        speed = self.conn.add_stream(getattr, telem, 'speed')
 
         if not self.TWR():
             control.activate_next_stage()
@@ -49,55 +47,100 @@ class Hover(GLimited, Maneuver):
             throttle_error.append(err)
             return throttle
 
-        lat_control = PID(0.2, 0.0, 0.6)
-        lon_control = PID(0.2, 0.0, 0.6)
-        lat_control.output_limits = -1.0, 1.0
-        lon_control.output_limits = -1.0, 1.0
-        lat_error = []
-        lon_error = []
-        line = self.conn.drawing.add_direction((1,0,0), rf)
+        target_control = PID(0.2, 0.0, 0.6)
+        perpendicular_control = PID(0.2, 0.0, 0.6)
+        target_control.output_limits = -1.0, 1.0
+        perpendicular_control.output_limits = -1.0, 1.0
+        target_error = []
+        perpendicular_error = []
+        white_line = self.conn.drawing.add_direction((1,0,0), rf)
+        green_line = self.conn.drawing.add_direction((1,0,0), rf)
+        green_line.color = (0, 255, 0)
+        red_line = self.conn.drawing.add_direction((1,0,0), rf)
+        red_line.color = (255, 0, 0)
+        mag_line = self.conn.drawing.add_direction((1,0,0), rf)
+        mag_line.color = (255, 0, 255)
+
         def update_direction():
-            scale = 0.2
-            lat_err = (target.latitude - self.latitude()) / degrees_per_meter
-            lon_err = (target.longitude - self.longitude()) / degrees_per_meter
-            lat_out = lat_control(lat_err) * scale
-            lon_out = lon_control(lon_err) * scale
-            lat_error.append(lat_err)
-            lon_error.append(lon_err)
-            vec = np.array([1.0, -lat_out, -lon_out])
-            line.end = (0.0, lat_err, lon_err)
-            notify(lat_err, lon_err, vec)
+            target.pointer = ksc.transform_position(target.position, target.reference_frame, rf)
+            target.distance = np.linalg.norm(target.pointer)
+            target.relative_velocity = ksc.transform_velocity(target.position, (0,0,0), target.reference_frame, rf)
+
+            p = np.array(target.pointer)
+            p[0] = 0
+            p_mag = np.linalg.norm(p)
+            p_dir = p / p_mag
+            p_perp = np.array([p_dir[0], -p_dir[2], p_dir[1]])
+
+            v = np.array(target.relative_velocity)
+            v[0] = 0
+            v_mag = np.linalg.norm(v)
+            v_dir = v / v_mag
+            v_perp = np.array([v_dir[0], -v_dir[2], v_dir[1]])
+
+            p_forward = np.dot(v_dir, p)
+            p_side = np.dot(v_perp, p)
+
+            v_torwards = np.dot(p_dir, v)
+            v_side = np.dot(p_perp, v)
+
+            vec = np.array([1.0, 0.0, 0.0]) # Point up if not correcting
+
+            target_output = target_control(p_mag)
+            vec -= min(0.2, v_mag) * target_output * p_dir
+
+            perpendicular_output = perpendicular_control(p_side)
+            vec += min(0.2, v_mag) * perpendicular_output * p_perp
+
+            notify(p_mag, v_mag, (target_output, perpendicular_output))
+            white_line.end = target.pointer
+            green_line.end = 5.0 * p_dir
+            red_line.end = 5.0 * p_perp
+            mag_line.end = -10.0 * v_dir
+
+            target_error.append(p_mag)
+            perpendicular_error.append(p_side)
+
             return vec
 
-        target.altitude = 100.0
+        target.altitude = 50.0
         target.latitude = self.latitude()
         target.longitude = self.longitude()
         while not self.abort():
             if self.brakes():
                 target.latitude = lat1
                 target.longitude = lon1
+                target.position = body.position_at_altitude(
+                    target.latitude, target.longitude,
+                    self.mean_altitude(), body.reference_frame)
+                target.reference_frame = body.reference_frame
             else:
                 target.latitude = lat0
                 target.longitude = lon0
+                target.position = body.position_at_altitude(
+                    target.latitude, target.longitude,
+                    self.mean_altitude(), body.reference_frame)
+                target.reference_frame = body.reference_frame
             d = update_direction()
             ap.target_direction = d
             control.throttle = update_throttle() * np.linalg.norm(d)
+            wait(0.01)
         control.throttle = 0
 
         from scipy.optimize import least_squares
-        lat_error = np.array(lat_error)
-        lon_error = np.array(lon_error)
-        t = np.arange(len(lat_error))
+        perpendicular_error = np.array(perpendicular_error)
+        target_error = np.array(target_error)
+        t = np.arange(len(perpendicular_error))
         # guess = np.ones(3)
         # res = least_squares(model, guess, args=(t, error))
         # x = res.x
         # fit = model(x, t, 0.0)
         # plt.plot(t, fit, label=f'{x}')
         plt.plot(t, np.zeros_like(t), label='zero')
-        plt.plot(t, np.log(np.abs(lat_error) + 1.0), label='log lat')
-        plt.plot(t, lat_error, label='raw lat')
-        plt.plot(t, np.log(np.abs(lon_error) + 1.0), label='log lon')
-        plt.plot(t, lon_error, label='raw lon')
+        plt.plot(t, np.log(np.abs(perpendicular_error) + 1.0), label='log perp')
+        plt.plot(t, perpendicular_error, label='raw perp')
+        plt.plot(t, np.log(np.abs(target_error) + 1.0), label='log target')
+        plt.plot(t, target_error, label='raw target')
         plt.xlabel('time')
         plt.ylabel('error')
         plt.legend()
