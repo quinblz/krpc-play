@@ -37,36 +37,32 @@ class Hover(GLimited, Maneuver):
         if not self.TWR():
             control.activate_next_stage()
 
+        Kp = 0.2
+        Kd = 3.0 * Kp
         pid = [
-            PID(1.0, 0.0, 1.5), # throttole
-            PID(0.2, 0.0, 0.6), # N/S
-            PID(0.2, 0.0, 0.6), # E/W
+            PID(1.0, 0.0, 1.5), # throttle
+            PID(Kp, 0.0, Kd), # N/S
+            PID(Kp, 0.0, Kd), # E/W
         ]
-        pid[1].output_limits = -1.0, 1.0
-        pid[2].output_limits = -1.0, 1.0
+        lateral_acc = 0.2 * surface_gravity
+        pid[1].output_limits = -lateral_acc, lateral_acc
+        pid[2].output_limits = -lateral_acc, lateral_acc
         error = [[],[],[]]
 
-        throttle_error = error[0]
         def update_throttle():
             err = target.altitude - self.surface_altitude()
-            # acc = surface_gravity - 1.5 * vertical_speed() + p_err
             acc = surface_gravity + pid[0](-err)
             throttle = acc / self.TWR()
-            throttle_error.append(err)
+            error[0].append(err)
             return throttle
 
-        def update_direction():
-            target.pointer = ksc.transform_position(target.position, target.reference_frame, rf)
-            target.distance = np.linalg.norm(target.pointer)
-            target.relative_velocity = -np.array(ksc.transform_velocity(target.position, (0,0,0), target.reference_frame, rf))
-            target.speed = np.linalg.norm(target.relative_velocity)
-
-            p = np.array(target.pointer)
-            scale = 0.2
-            vec = [1.0, -scale * pid[1](p[1]), -scale * pid[2](p[2])]
+        def force_vector():
+            p = -np.array(target.pointer)
+            scale = min(1.0, max(target.distance, target.speed / surface_gravity))
+            scale = 1.0
+            vec = np.array([surface_gravity, scale * pid[1](p[1]), scale * pid[2](p[2])])
             error[1].append(p[1])
             error[2].append(p[2])
-            notify(target.distance, target.speed)
             return vec
 
         target.altitude = 50.0
@@ -77,33 +73,32 @@ class Hover(GLimited, Maneuver):
                 target.altitude = 100.0
                 target.latitude = lat1
                 target.longitude = lon1
-                target.position = body.position_at_altitude(
-                    target.latitude, target.longitude,
-                    self.mean_altitude(), body.reference_frame)
-                target.reference_frame = body.reference_frame
             else:
                 target.altitude = 50
                 target.latitude = lat0
                 target.longitude = lon0
-                target.position = body.position_at_altitude(
-                    target.latitude, target.longitude,
-                    self.mean_altitude(), body.reference_frame)
-                target.reference_frame = body.reference_frame
-            d = update_direction()
-            ap.target_direction = d
-            control.throttle = update_throttle() * np.linalg.norm(d)
+            
+            target.position = body.position_at_altitude(
+                target.latitude, target.longitude,
+                self.mean_altitude(), body.reference_frame)
+            target.reference_frame = body.reference_frame
+            target.pointer = ksc.transform_position(target.position, target.reference_frame, rf)
+            target.distance = np.linalg.norm(target.pointer)
+            target.relative_velocity = -np.array(ksc.transform_velocity(target.position, (0,0,0), target.reference_frame, rf))
+            target.speed = np.linalg.norm(target.relative_velocity)
+            
+            notify(target.distance, target.speed)
+
+            F = force_vector()
+            ap.target_direction = F
+            scaled_force = np.linalg.norm(F) / surface_gravity
+            control.throttle = update_throttle() * scaled_force
             wait(0.01)
         control.throttle = 0
 
-        from scipy.optimize import least_squares
         err1 = np.array(error[1])
         err2 = np.array(error[2])
         t = np.arange(len(err1))
-        # guess = np.ones(3)
-        # res = least_squares(model, guess, args=(t, error))
-        # x = res.x
-        # fit = model(x, t, 0.0)
-        # plt.plot(t, fit, label=f'{x}')
         plt.plot(t, np.zeros_like(t), label='zero')
         plt.plot(t, np.log(np.abs(err1) + 1.0), label='log err1')
         plt.plot(t, err1, label='raw err1')
@@ -115,10 +110,6 @@ class Hover(GLimited, Maneuver):
         plt.show()
 
         wait()
-
-
-def model(x, t, y):
-    return x[0] * np.exp(-x[1] * t) * np.cos(x[2] * t) - y
 
 if __name__ == "__main__":
     import krpc
