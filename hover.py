@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from common import notify, wait
 from common.g_limit import GLimited
 from common.maneuver import Maneuver
-from common.pid import PID
+from common.pid import PID, CascadeControl
 
 class Hover(GLimited, Maneuver):
     def __init__(self, conn, **kwargs):
@@ -21,8 +21,7 @@ class Hover(GLimited, Maneuver):
         ap = vessel.auto_pilot
         ap.engage()
         ap.reference_frame = rf
-        control = vessel.control
-        control.rcs = True
+        vessel.control.rcs = True
         body = vessel.orbit.body
         surface_gravity = body.surface_gravity
         r = body.equatorial_radius
@@ -35,32 +34,36 @@ class Hover(GLimited, Maneuver):
         target = lambda : None
 
         if not self.TWR():
-            control.activate_next_stage()
+            vessel.control.activate_next_stage()
 
-        Kp = 0.2
-        Kd = 3.0 * Kp
-        pid = [
-            PID(1.0, 0.0, 1.5), # throttle
-            PID(Kp, 0.0, Kd), # N/S
-            PID(Kp, 0.0, Kd), # E/W
+
+        def create_lateral_control():
+            Kp = 0.2
+            Kd = 3.0 * Kp
+            lateral_acc = 0.2 * surface_gravity
+            control = PID(
+                Kp=Kp, Kd=Kd,
+                output_limits=(-lateral_acc, lateral_acc)
+            )
+            return control
+        controllers = [
+            PID(1.0, 0.0, 1.5), # up/down
+            create_lateral_control(), # N/S
+            create_lateral_control(), # E/W
         ]
-        lateral_acc = 0.2 * surface_gravity
-        pid[1].output_limits = -lateral_acc, lateral_acc
-        pid[2].output_limits = -lateral_acc, lateral_acc
         error = [[],[],[]]
 
         def update_throttle():
             err = target.altitude - self.surface_altitude()
-            acc = surface_gravity + pid[0](-err)
+            acc = surface_gravity + controllers[0](-err)
             throttle = acc / self.TWR()
             error[0].append(err)
             return throttle
 
         def force_vector():
             p = -np.array(target.pointer)
-            scale = min(1.0, max(target.distance, target.speed / surface_gravity))
-            scale = 1.0
-            vec = np.array([surface_gravity, scale * pid[1](p[1]), scale * pid[2](p[2])])
+            scale = min(1.0, max(target.distance, 2.0 * target.speed))
+            vec = np.array([surface_gravity, scale * controllers[1](p[1]), scale * controllers[2](p[2])])
             error[1].append(p[1])
             error[2].append(p[2])
             return vec
@@ -92,9 +95,9 @@ class Hover(GLimited, Maneuver):
             F = force_vector()
             ap.target_direction = F
             scaled_force = np.linalg.norm(F) / surface_gravity
-            control.throttle = update_throttle() * scaled_force
+            vessel.control.throttle = update_throttle() * scaled_force
             wait(0.01)
-        control.throttle = 0
+        vessel.control.throttle = 0
 
         err1 = np.array(error[1])
         err2 = np.array(error[2])

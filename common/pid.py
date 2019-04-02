@@ -24,6 +24,17 @@ except AttributeError:
     _current_time = time.time
     warnings.warn('time.monotonic() not available in python < 3.3, using time.time() as fallback')
 
+class CascadeControl(object):
+    def __init__(self, *controls):
+        self.controls = controls
+    
+    def __call__(self, *inputs):
+        for i in range(len(self.controls)):
+            control = self.controls[i]
+            if i > 0:
+                control.setpoint = setpoint
+            setpoint = self.controls[i](inputs[i])
+        return setpoint
 
 class PID(object):
     """
