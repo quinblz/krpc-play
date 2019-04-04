@@ -26,14 +26,14 @@ except AttributeError:
 
 class CascadeControl(object):
     def __init__(self, *controls):
-        self.controls = controls
+        self.controls = list(controls)
     
-    def __call__(self, *inputs):
+    def __call__(self, *args):
         for i in range(len(self.controls)):
             control = self.controls[i]
             if i > 0:
                 control.setpoint = setpoint
-            setpoint = self.controls[i](inputs[i])
+            setpoint = self.controls[i](args[i])
         return setpoint
 
 class PID(object):
