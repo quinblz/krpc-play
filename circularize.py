@@ -10,13 +10,12 @@ class Circularize(StagingAware, GLimited, Maneuver):
         super().__init__(conn, **kwargs)
         self.target_heading = target_heading
 
-    def circularization_delta_v(self):
+    def circularization_delta_v(self, r):
         '''
         https://en.wikipedia.org/wiki/Vis-viva_equation
         '''
         orbit = self.vessel.orbit
         mu = orbit.body.gravitational_parameter
-        r = orbit.apoapsis
         a1 = orbit.semi_major_axis
         a2 = r
         v1 = math.sqrt(mu*((2./r)-(1./a1)))
@@ -26,7 +25,7 @@ class Circularize(StagingAware, GLimited, Maneuver):
 
     def execute(self):
         orbit = self.vessel.orbit
-        if orbit.apoapsis - orbit.periapsis < 1e4 and orbit.periapsis_altitude > orbit.body.atmosphere_depth:
+        if abs(orbit.apoapsis - orbit.periapsis) < 1e4 and orbit.periapsis_altitude > orbit.body.atmosphere_depth:
             return
         notify("Circularizing...")
 
@@ -34,10 +33,11 @@ class Circularize(StagingAware, GLimited, Maneuver):
         control = self.vessel.control
         control.throttle = 0.0
 
-        delta_v = self.circularization_delta_v()
+        radius = max(self.apoapsis(), self.periapsis())
+        delta_v = self.circularization_delta_v(radius)
         burn_time = self.burn_time(delta_v)
         ut = self.ut()
-        apoapsis_ut = ut + self.vessel.orbit.time_to_apoapsis
+        apoapsis_ut = ut + min(orbit.time_to_apoapsis, orbit.time_to_periapsis)
         eccentricity = self.eccentricity()
 
         notify(f"delta_v: {delta_v}")
