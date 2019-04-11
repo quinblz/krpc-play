@@ -3,11 +3,11 @@ from numpy.linalg import norm
 from common.node import execute_next_node
 
 class Maneuver():
-    def __init__(self, conn, **kwargs):
+    def __init__(self, conn, target=None, **kwargs):
         self.conn = conn
         ksc = conn.space_center
         self.vessel = ksc.active_vessel
-        self.target = ksc.target_vessel or ksc.target_body
+        self.target = target or ksc.target_vessel or ksc.target_body
 
     def burn_time(self, delta_v, against_g=0):
         m0 = self.mass()
@@ -40,6 +40,14 @@ class Maneuver():
         self.apoapsis_altitude = self.conn.add_stream(getattr, self.vessel.orbit, 'apoapsis_altitude')
         return self.apoapsis_altitude()
 
+    def periapsis(self):
+        self.periapsis = self.conn.add_stream(getattr, self.vessel.orbit, 'periapsis')
+        return self.periapsis()
+
+    def periapsis_altitude(self):
+        self.periapsis_altitude = self.conn.add_stream(getattr, self.vessel.orbit, 'periapsis_altitude')
+        return self.periapsis_altitude()
+
     def available_thrust(self):
         self.available_thrust = self.conn.add_stream(getattr, self.vessel, 'available_thrust')
         return self.available_thrust()
@@ -62,6 +70,10 @@ class Maneuver():
 
     def mean_altitude(self):
         self.mean_altitude = self.conn.add_stream(getattr, self.vessel.flight(), 'mean_altitude')
+        return self.mean_altitude()
+
+    def vertical_speed(self):
+        self.mean_altitude = self.conn.add_stream(getattr, self.vessel.flight(), 'vertical_speed')
         return self.mean_altitude()
 
     def semi_major_axis(self):
