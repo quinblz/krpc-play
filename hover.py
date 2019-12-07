@@ -32,6 +32,7 @@ class Hover(GLimited, Maneuver):
         ap.reference_frame = rf
         body = vessel.orbit.body
         surface_gravity = body.surface_gravity
+        tick = 0.01
         r = body.equatorial_radius
         degrees_per_meter = 180 / r / math.pi
 
@@ -52,25 +53,30 @@ class Hover(GLimited, Maneuver):
             control = CascadeControl(
                 PID(
                     Kp=Kp, Kd=Kd,
+                    sample_time=tick,
                 ),
                 PID(
                     Kp=1.0, Kd=0.0,
-                    output_limits=(-lateral_acc, lateral_acc)
+                    output_limits=(-lateral_acc, lateral_acc),
+                    sample_time=tick,
                 )
             )
-            control.controls[0] = lambda *x : 10
+            control.controls[0] = lambda *x : 0
             return control
         controllers = [
             PID(1.0, 0.0, 1.5), # up/down
             create_lateral_control(), # N/S
-            lambda *x : 0, #create_lateral_control(), # E/W
+            create_lateral_control(), # E/W
         ]
         error = [[],[],[]]
 
         def update_throttle():
-            err = target.altitude - self.surface_altitude()
+            delta_h = target.altitude - self.surface_altitude()
+            twr = self.TWR()
+            
+            err = delta_h
             acc = surface_gravity + controllers[0](-err)
-            throttle = acc / self.TWR()
+            throttle = acc / twr
             error[0].append(err)
             return throttle
 
@@ -81,7 +87,7 @@ class Hover(GLimited, Maneuver):
             scale = 1.0
             vec = np.array([surface_gravity, scale * controllers[1](p[1], v[1]), scale * controllers[2](p[2], v[2])])
             error[1].append(ap.error)
-            error[2].append(v[1] - 10)
+            error[2].append(v[1])
             return vec
 
         target.altitude = 50.0
@@ -90,9 +96,8 @@ class Hover(GLimited, Maneuver):
         while vessel.met < 8.0:
             vessel.control.throttle = update_throttle()
             ap.target_direction = (1,0,0)
-            wait(0.01)
+            wait(tick)
 
-        filter = LowPassFilter(0.15)
         while not self.abort():
             if self.brakes():
                 target.altitude = 100.0
@@ -115,18 +120,18 @@ class Hover(GLimited, Maneuver):
             notify(target.distance, target.speed)
 
             F = force_vector()
-            ap.target_direction = filter(F)
+            ap.target_direction = F
             scaled_force = np.linalg.norm(F) / surface_gravity
             vessel.control.throttle = update_throttle() * scaled_force
-            wait(0.01)
+            wait(tick)
         vessel.control.throttle = 0
 
         err1 = np.array(error[1])
         err2 = np.array(error[2])
         t = np.arange(len(err1))
         plt.plot(t, np.zeros_like(t), label='zero')
-        # plt.plot(t, np.log(np.abs(err1) + 1.0), label='log err1')
-        # plt.plot(t, err1, label='raw err1')
+        plt.plot(t, np.log(np.abs(err1) + 1.0), label='log err1')
+        plt.plot(t, err1, label='raw err1')
         plt.plot(t, np.log(np.abs(err2) + 1.0), label='log err2')
         plt.plot(t, err2, label='raw err2')
         plt.xlabel('time')

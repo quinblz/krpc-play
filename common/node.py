@@ -73,17 +73,22 @@ def execute_next_node(conn):
     G = 9.81
     burn_time = (m - (m / math.exp(dv / (isp * G)))) / (F / (isp * G))
 
+    ap.reference_frame=rf
+    ap.engage()
+    ap.target_direction = node.remaining_burn_vector(rf)
+    ap.wait()
 # TODO: check fuel level for potential staging
 
 # Warp until burn
     space_center.warp_to(node.ut - (burn_time / 2.0) - 5.0)
+    ap.engage()
+    ap.target_direction = node.remaining_burn_vector(rf)
     while node.time_to > (burn_time / 2.0):
         pass
-    ap.wait()
     
 # Actually Burn
     vessel.control.throttle, acc = thrust_controller(vessel, node.remaining_delta_v)  
-    while node.remaining_delta_v > acc * wait.interval:
+    while node.remaining_delta_v > acc * wait.interval and node.remaining_delta_v > 0.2:
         ap.target_direction=node.remaining_burn_vector(rf)
         vessel.control.throttle, acc = thrust_controller(vessel, node.remaining_delta_v)
         wait()
@@ -118,7 +123,7 @@ def thrust_controller(vessel, deltaV):
             vessel.control.activate_next_stage()
         time.sleep(0.1)
     TWR= vessel.available_thrust/vessel.mass
-    min_throttle = 0.05
-    throttle = min_throttle + deltaV / TWR / 5
+    min_throttle = 0.00
+    throttle = min_throttle + deltaV / TWR / 2
     throttle = clamp(throttle)
     return throttle, TWR * throttle
